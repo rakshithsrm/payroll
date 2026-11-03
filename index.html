@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RMV Manpover Services</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="rain" aria-hidden="true"></div>
+
+  <!-- ============ LOGIN PAGE ============ -->
+  <div class="view" id="loginView">
+    <section class="card">
+      <h1>Welcome back</h1>
+      <p class="sub">Sign in to continue.</p>
+
+      <form id="loginForm" novalidate>
+        <label for="user">Username</label>
+        <input id="user" name="user" type="text" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="Enter your username" required>
+
+        <label for="pass">Password</label>
+        <div class="pw">
+          <input id="pass" name="pass" type="password" autocomplete="current-password" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="Enter your password" required>
+          <button type="button" id="toggle" aria-label="Show password">Show</button>
+        </div>
+
+        <button class="flow submit" id="submitBtn" type="submit"><span class="label">Sign in</span></button>
+        <p class="error" id="error" role="alert"></p>
+      </form>
+    </section>
+  </div>
+
+  <!-- ============ HOME PAGE ============ -->
+  <div class="view" id="homeView" hidden>
+    <header class="bar glass">
+      <div class="brand">
+        <div class="mark" aria-hidden="true">RMV</div>
+        <div class="name">RMV MANPOVER SERVICES</div>
+      </div>
+      <div class="right">
+        <div class="user"><i class="dot" aria-hidden="true"></i><span>Signed in</span></div>
+        <button class="flow out" id="signOut"><span class="label">Sign out</span></button>
+      </div>
+    </header>
+
+    <main>
+      <section class="hero">
+        <div>
+          <h1 class="hello"><span id="greet">Good evening</span>,<br><em>welcome back.</em></h1>
+          <p class="sub">Pick up where you left off. Everything for your team is one click away.</p>
+        </div>
+        <div class="clock glass">
+          <div class="time" id="time">--:--<small id="sec">--</small></div>
+          <div class="date" id="date">&nbsp;</div>
+        </div>
+      </section>
+
+      <section class="grid">
+        <a class="tile glass" href="companies.html">
+          <div class="ico"><svg viewBox="0 0 24 24"><path d="M4 21V5a1 1 0 0 1 1-1h8a1 1 0 0 1 1 1v16M14 9h5a1 1 0 0 1 1 1v11M3 21h18M8 8h2M8 12h2M8 16h2M17 13h.01M17 17h.01"/></svg></div>
+          <h3>Companies</h3><p>Add client companies and import their registers.</p>
+          <div class="go">Open <svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></div>
+        </a>
+        <a class="tile glass" href="formulas.html">
+          <div class="ico"><svg viewBox="0 0 24 24"><path d="M17 5H7l6 7-6 7h10"/></svg></div>
+          <h3>Formulas</h3><p>Set the PF, ESI and invoice rates for each company.</p>
+          <div class="go">Open <svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></div>
+        </a>
+        <a class="tile glass" href="employees.html">
+          <div class="ico"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.2"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><circle cx="17.5" cy="9" r="2.4"/><path d="M17 14.2c2.4.3 4 2.2 4 4.8"/></svg></div>
+          <h3>Employees</h3><p>View and manage your workforce records.</p>
+          <div class="go">Open <svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></div>
+        </a>
+        <a class="tile glass" href="payroll.html">
+          <div class="ico"><svg viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="12" rx="2.5"/><circle cx="12" cy="12" r="2.6"/><path d="M6.5 9.5v.01M17.5 14.5v.01"/></svg></div>
+          <h3>Payroll</h3><p>Calculate salaries and prepare payslips.</p>
+          <div class="go">Open <svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></div>
+        </a>
+        <a class="tile glass" href="attendance.html">
+          <div class="ico"><svg viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="15" rx="2.5"/><path d="M8 3v4M16 3v4M3.5 10h17M9 15l2 2 4-4"/></svg></div>
+          <h3>Attendance</h3><p>Track days worked, leave and overtime.</p>
+          <div class="go">Open <svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></div>
+        </a>
+        <a class="tile glass" href="reports.html">
+          <div class="ico"><svg viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg></div>
+          <h3>Reports</h3><p>Review summaries and download records.</p>
+          <div class="go">Open <svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></div>
+        </a>
+      </section>
+    </main>
+
+    <footer>&copy; <span id="yr"></span> RMV Manpover Services</footer>
+  </div>
+
+<script>
+  const loginView = document.getElementById('loginView');
+  const homeView  = document.getElementById('homeView');
+  const form = document.getElementById('loginForm');
+  const err  = document.getElementById('error');
+  const pass = document.getElementById('pass');
+  const btn  = document.getElementById('submitBtn');
+  const label = btn.querySelector('.label');
+
+  const VALID_USER = 'rmv2026';
+  const VALID_PASS = 'rmv@2026';
+
+  /* ---- switching between the two pages ---- */
+  function showHome() {
+    loginView.hidden = true; homeView.hidden = false;
+    document.body.classList.add('in-home');
+    window.scrollTo(0, 0); tick();
+  }
+  function showLogin() {
+    homeView.hidden = true; loginView.hidden = false;
+    document.body.classList.remove('in-home');
+    form.reset(); err.textContent = '';
+    btn.classList.remove('busy', 'done', 'fail'); label.textContent = 'Sign in';
+    pass.type = 'password'; document.getElementById('toggle').textContent = 'Show';
+  }
+
+  /* ---- login ---- */
+  document.getElementById('toggle').addEventListener('click', e => {
+    const show = pass.type === 'password';
+    pass.type = show ? 'text' : 'password';
+    e.target.textContent = show ? 'Hide' : 'Show';
+    e.target.setAttribute('aria-label', show ? 'Hide password' : 'Show password');
+  });
+
+  function showFail(msg) {
+    err.textContent = msg;
+    btn.classList.add('fail');
+    setTimeout(() => btn.classList.remove('fail'), 700);
+  }
+
+  form.addEventListener('submit', e => {
+    e.preventDefault();
+    if (btn.classList.contains('busy') || btn.classList.contains('done')) return;
+
+    const u = form.user.value.trim().toLowerCase(), p = form.pass.value.trim();
+    err.textContent = '';
+    btn.classList.remove('fail');
+    void btn.offsetWidth;
+    btn.classList.add('busy');
+
+    setTimeout(() => {
+      btn.classList.remove('busy');
+      if (u !== VALID_USER || p !== VALID_PASS) { showFail('Incorrect username or password.'); return; }
+      btn.classList.add('done');
+      label.textContent = 'Signed in';
+      try { sessionStorage.setItem('rmvAuth', '1'); } catch (e) {}
+      setTimeout(showHome, 400);
+    }, 700);
+  });
+
+  /* ---- home ---- */
+  document.getElementById('signOut').addEventListener('click', () => {
+    try { sessionStorage.removeItem('rmvAuth'); } catch (e) {}
+    showLogin();
+  });
+
+  const pad = n => String(n).padStart(2, '0');
+  function tick() {
+    const d = new Date(), h = d.getHours();
+    document.getElementById('greet').textContent = h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening';
+    document.getElementById('time').firstChild.nodeValue = pad(h % 12 || 12) + ':' + pad(d.getMinutes());
+    document.getElementById('sec').textContent = pad(d.getSeconds()) + ' ' + (h < 12 ? 'AM' : 'PM');
+    document.getElementById('date').textContent = d.toLocaleDateString(undefined, { weekday:'long', day:'numeric', month:'long', year:'numeric' });
+  }
+  setInterval(() => { if (!homeView.hidden) tick(); }, 1000);
+  document.getElementById('yr').textContent = new Date().getFullYear();
+
+  document.querySelectorAll('.tile').forEach(t => {
+        t.addEventListener('mousemove', e => {
+      const r = t.getBoundingClientRect();
+      t.style.setProperty('--mx', (e.clientX - r.left) + 'px');
+      t.style.setProperty('--my', (e.clientY - r.top) + 'px');
+    });
+  });
+
+  window.addEventListener('pageshow', e => {
+    if (!e.persisted) return;
+    let ok = false; try { ok = sessionStorage.getItem('rmvAuth') === '1'; } catch (x) {}
+    if (ok) showHome(); else showLogin();
+  });
+
+  /* stay signed in on refresh (until the tab is closed or you sign out) */
+  try { if (sessionStorage.getItem('rmvAuth') === '1') showHome(); } catch (e) {}
+</script>
+</body>
+</html>

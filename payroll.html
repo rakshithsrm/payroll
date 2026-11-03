@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Payroll | RMV Manpover Services</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  table.reg { width:max-content; min-width:100%; table-layout:auto; }
+  table.reg th:nth-child(n) { width:auto; }
+  table.reg th, table.reg td { padding:11px 10px; text-align:right; overflow:visible; font-variant-numeric:tabular-nums; white-space:nowrap; }
+  table.reg th { font-size:.72rem; }
+  table.reg th.l, table.reg td.l { text-align:left; }
+  table.reg td.who { position:sticky; left:0; z-index:2; background:#0a1426; border-right:1px solid var(--line); text-align:left; padding-left:16px; max-width:220px; overflow:hidden; text-overflow:ellipsis; }
+  table.reg th.who { position:sticky; left:0; z-index:3; background:#0a1426; border-right:1px solid var(--line); text-align:left; padding-left:16px; }
+  table.reg td.who small { display:block; color:var(--muted); font-size:.72rem; }
+  table.reg td.net { font-weight:700; color:var(--cyan); }
+  table.reg tfoot td { border-top:1px solid var(--line); font-weight:700; background:rgba(63,216,255,.05); }
+  table.reg tfoot td.who { background:#0d1a30; }
+  .warn { color:#ffc857; font-size:.78rem; margin-left:6px; }
+  .editb { margin-left:6px; }
+
+  .cards { display:grid; grid-template-columns:repeat(auto-fit,minmax(300px,1fr)); gap:18px; }
+  .kv { padding:6px 18px 14px; }
+  .kv div { display:flex; justify-content:space-between; gap:12px; padding:9px 0; border-bottom:1px solid rgba(130,195,255,.1); font-size:.92rem; font-variant-numeric:tabular-nums; }
+  .kv div:last-child { border-bottom:0; }
+  .kv div span:first-child { color:var(--muted); }
+  .kv div.tot { font-weight:700; } .kv div.tot span:first-child { color:var(--ink); } .kv div.tot span:last-child { color:var(--cyan); }
+  .note { padding:0 18px 16px; color:var(--muted); font-size:.8rem; line-height:1.5; }
+  .note b { color:#ffc857; font-weight:600; }
+
+  .fbar { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:10px 18px; padding:12px 18px; border-radius:14px; margin-bottom:18px; font-size:.88rem; color:var(--muted); }
+  .fbar b { color:var(--ink); font-weight:600; }
+  .fbar a { color:var(--cyan); text-decoration:none; font-weight:600; white-space:nowrap; }
+  .fbar a:hover { text-decoration:underline; }
+  details.rates { display:none; }
+  details.rates summary { cursor:pointer; padding:14px 18px; font-weight:600; list-style:none; display:flex; justify-content:space-between; align-items:center; }
+  details.rates summary::-webkit-details-marker { display:none; }
+  details.rates summary span { color:var(--muted); font-weight:400; font-size:.85rem; }
+  .rgrid { display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:12px; padding:0 18px 16px; }
+  .rgrid label { margin:0 0 5px; }
+  .printhead { display:none; }
+  .banner { padding:12px 16px; border-radius:12px; margin-bottom:16px; font-size:.88rem; color:#ffc857; border:1px solid rgba(255,200,87,.4); background:rgba(255,200,87,.08); }
+  .banner[hidden] { display:none; }
+  .hint { color:var(--muted); font-size:.8rem; margin-top:4px; }
+  @media print {
+    body::before, .rain, .bar, .tools, .actions, .toast, details.rates, .fbar, .editb, .banner, dialog { display:none !important; }
+    body { background:#fff; color:#000; } .glass { background:none; border:0; box-shadow:none; backdrop-filter:none; }
+    table.reg td.who, table.reg th.who, table.reg tfoot td.who { background:#fff; } table.reg td.net { color:#000; }
+    .printhead { display:block; text-align:center; margin-bottom:10px; } .printhead h3 { font-size:1.1rem; } .printhead p { font-size:.8rem; }
+    .scroll { overflow:visible; } table.reg { font-size:9px; } .kv div span:first-child, .note, .gmeta, .head p { color:#333; }
+    .cards { grid-template-columns:1fr 1fr; }
+  }
+</style>
+</head>
+<body>
+<script src="common.js"></script>
+<script src="formula.js"></script>
+
+  <div class="view">
+    <main class="wrap">
+      <div class="head">
+        <div><h2>Payroll</h2><p id="paySummary"></p></div>
+        <div class="actions">
+          <button class="flow btn ghost" id="exportBtn"><span class="label">Export CSV</span></button>
+          <button class="flow btn ghost" id="printBtn"><span class="label">Print</span></button>
+        </div>
+      </div>
+
+      <div class="tools glass">
+        <select id="coSel" aria-label="Company"></select>
+        <select id="mSel" aria-label="Month"></select>
+        <select id="ySel" aria-label="Year" style="flex:0 1 130px"></select>
+      </div>
+
+      <div class="fbar glass" id="fbar"></div>
+
+      <div class="banner" id="banner" hidden></div>
+
+      <section class="group glass">
+        <div class="ghead">
+          <h3><span id="gTitle">Company</span> <span class="count" id="gCount">0</span></h3>
+          <span class="gmeta" id="gMonth"></span>
+        </div>
+        <div class="printhead" id="printHead"></div>
+        <div class="scroll" id="regBody"></div>
+      </section>
+
+      <div class="cards" id="cards" style="margin-top:18px"></div>
+    </main>
+  </div>
+
+  <dialog id="payDlg">
+    <form id="payForm" novalidate>
+      <h3 id="payTitle">Month inputs</h3>
+      <p class="hint" id="payHint"></p>
+      <div class="row">
+        <div><label for="pPayable">Payable days</label><input id="pPayable" type="number" min="0" step="0.5"></div>
+        <div><label for="pAbs">Absent / LWP days</label><input id="pAbs" type="number" min="0" step="0.5"></div>
+      </div>
+      <div class="row">
+        <div><label for="pRate">Daily rate (this month)</label><input id="pRate" type="number" min="0" step="any"></div>
+        <div><label for="pHra">HRA (this month)</label><input id="pHra" type="number" min="0" step="any"></div>
+      </div>
+      <div class="row">
+        <div><label for="pAdv">Advance</label><input id="pAdv" type="number" min="0" step="any"></div>
+        <div><label for="pOt">Overtime amount</label><input id="pOt" type="number" min="0" step="any"></div>
+      </div>
+      <div class="row">
+        <div><label for="pArrear">Arrear salary</label><input id="pArrear" type="number" min="0" step="any"></div>
+        <div><label for="pMeals">Free meals</label><input id="pMeals" type="number" min="0" step="any"></div>
+      </div>
+      <label style="display:flex;align-items:center;gap:10px;margin-top:16px;color:var(--ink)"><input type="checkbox" id="pSkip" style="width:auto"> Not paid this month (left or not working)</label>
+      <div class="dact">
+        <button type="button" class="flow btn ghost" id="payReset"><span class="label">Use defaults</span></button>
+        <button type="button" class="flow btn ghost" id="payCancel"><span class="label">Cancel</span></button>
+        <button type="submit" class="flow btn"><span class="label">Save</span></button>
+      </div>
+    </form>
+  </dialog>
+
+  <div class="toast" id="toast" hidden></div>
+
+<script>
+(function () {
+  var EMP_KEY = 'rmvEmployees', ATT_KEY = 'rmvAttendance', PAY_KEY = 'rmvPayroll', PREF_KEY = 'rmvPayrollPrefs';
+  var $ = function (id) { return document.getElementById(id); };
+  var esc = function (v) { return String(v == null ? '' : v).replace(/[&<>"']/g, function (c) { return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]; }); };
+  var load = function (k, d) { try { var v = JSON.parse(localStorage.getItem(k) || 'null'); return v == null ? d : v; } catch (e) { return d; } };
+  var store = function (k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} };
+  var money = function (n) { return Number(n || 0).toLocaleString('en-IN'); };
+  var fmt = function (n) { return Number.isInteger(n) ? String(n) : (Math.round(n * 100) / 100).toString(); };
+
+  var emp = load(EMP_KEY, { companies: [], employees: [] });
+  if (!emp.companies || !emp.employees) emp = { companies: [], employees: [] };
+  var att = load(ATT_KEY, {});
+  var pay = load(PAY_KEY, {});
+  var rates = RMVFormula.DEF;
+  var prefs = load(PREF_KEY, {});
+
+  var now = new Date();
+  var qc = new URLSearchParams(location.search).get('company');
+  var company = emp.companies.indexOf(qc) >= 0 ? qc : (emp.companies.indexOf(prefs.company) >= 0 ? prefs.company : (emp.companies[0] || ''));
+  var month = /^\d{4}-\d{2}$/.test(prefs.month || '') ? prefs.month : now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+
+
+  var MN = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  (function () {
+    var cy = new Date().getFullYear(), y = '';
+    for (var k = 2020; k <= cy + 5; k++) y += '<option>' + k + '</option>';
+    $('ySel').innerHTML = y;
+    $('mSel').innerHTML = MN.map(function (n, i) { return '<option value="' + String(i + 1).padStart(2, '0') + '">' + n + '</option>'; }).join('');
+  })();
+  function setMonthUI() {
+    var yy = month.slice(0, 4);
+    if (![].some.call($('ySel').options, function (o) { return o.value === yy; })) $('ySel').insertAdjacentHTML('beforeend', '<option>' + yy + '</option>');
+    $('mSel').value = month.slice(5); $('ySel').value = yy;
+  }
+  function onMonth() { month = $('ySel').value + '-' + $('mSel').value; prefs.month = month; store(PREF_KEY, prefs); render(); }
+
+  function toast(msg, bad) {
+    var t = $('toast'); t.textContent = msg; t.classList.toggle('bad', !!bad); t.hidden = false;
+    clearTimeout(toast.t); toast.t = setTimeout(function () { t.hidden = true; }, 2600);
+  }
+  function monthDays() { var p = month.split('-'); return new Date(+p[0], +p[1], 0).getDate(); }
+  function monthLabel() { var p = month.split('-'); return new Date(+p[0], +p[1] - 1, 1).toLocaleDateString(undefined, { month: 'long', year: 'numeric' }); }
+  function people() { return emp.employees.filter(function (x) { return x.company === company; }); }
+  function ov(id) { return (pay[month] && pay[month][id]) || {}; }
+
+  // not paid this month: marked so, or (no entry yet) not paid in the latest earlier month that has an imported register
+  function isSkipped(x) {
+    var e = pay[month] && pay[month][x.id]; if (e) return !!e.skip;
+    var mine = people(), ms = Object.keys(pay).filter(function (m) { return m < month; }).sort().reverse();
+    for (var i = 0; i < ms.length; i++) {
+      var m = ms[i]; if (!mine.some(function (v) { return pay[m][v.id] && pay[m][v.id].reg; })) continue;
+      return !!(pay[m][x.id] && pay[m][x.id].skip);
+    }
+    return false;
+  }
+  // default payable days: whole month, or from the joining date if the person joined during this month
+  function defaultPayable(x, days) {
+    var m = String(x.joined || '').match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (m && m[1] + '-' + m[2] === month) return Math.max(0, days - (+m[3] - 1));
+    if (m && m[1] + '-' + m[2] > month) return 0;
+    return days;
+  }
+  // absent days from the attendance page (A + L + half of H), only if something was marked
+  function fromAttendance(id) {
+    var r = att[month] && att[month][id]; if (!r || !r.d) return null;
+    var ks = Object.keys(r.d); if (!ks.length) return null;
+    var a = 0; ks.forEach(function (k) { var s = r.d[k]; if (s === 'A' || s === 'L') a += 1; else if (s === 'H') a += 0.5; });
+    return a;
+  }
+
+  function calc(x) {
+    var days = monthDays(), o = ov(x.id);
+    var payable = o.payable != null ? +o.payable : defaultPayable(x, days);
+    var attAbs = fromAttendance(x.id), man = !!o.m, abs, absSrc;   // o.m: saved from the Edit box (otherwise it came from a register import)
+    if (man && o.abs != null) { abs = +o.abs; absSrc = 'entered manually'; }
+    else if (attAbs != null) { abs = attAbs; absSrc = 'from the Attendance page'; }
+    else if (o.abs != null) { abs = +o.abs; absSrc = 'from the imported register'; }
+    else { abs = 0; absSrc = 'none marked'; }
+    var inp = { rate: +(o.rate != null ? o.rate : x.rate) || 0, hra: +(o.hra != null ? o.hra : x.hra) || 0, days: days, payable: payable, abs: abs,
+                adv: +o.adv || 0, ot: +o.ot || 0, arrear: +o.arrear || 0, meals: +o.meals || 0 };
+    var paidNow = Math.max(0, payable - abs);
+    if (o.reg && o.reg.paid === paidNow && o.reg.rate === inp.rate && o.reg.hra === inp.hra) { inp.regBU = o.reg.BU; inp.regBV = o.reg.BV; }   // same inputs as the imported register: use its own amounts
+    var k = RMVFormula.compute(inp, rates);
+    return Object.assign({ days: days, payable: payable, abs: abs, absSrc: absSrc, rate: inp.rate, hra: inp.hra, adv: inp.adv,
+                           ot: inp.ot, arrear: inp.arrear, meals: inp.meals, missing: !inp.rate, fromReg: inp.regBU != null }, k);
+  }
+  function bankOf(x) {
+    var b = String(x.bank || '').trim();
+    if (!b) return 'Other (no bank)';
+    return /karur/i.test(b) ? 'KVB (Karur Vysya Bank)' : b;
+  }
+  function sum(rows, k) { return rows.reduce(function (s, r) { return s + r.c[k]; }, 0); }
+
+  function render() {
+    var sel = $('coSel');
+    sel.innerHTML = emp.companies.length ? emp.companies.map(function (c) { return '<option>' + esc(c) + '</option>'; }).join('') : '<option value="">No companies</option>';
+    sel.value = company; setMonthUI();
+
+    rates = RMVFormula.getRates(company);
+    var fb = $('fbar');
+    fb.innerHTML = company
+      ? '<span>Formula for <b>' + esc(company) + '</b>: PF ' + fmt(rates.pf) + '% \u00b7 ESI ' + fmt(rates.esi) + '% \u00b7 service ' + fmt(rates.svc) + '% \u00b7 employer PF ' + fmt(rates.pfEr) + '% \u00b7 employer ESI ' + fmt(rates.esiEr) + '% \u00b7 GST ' + fmt(rates.gst) + '%' + (RMVFormula.hasOwn(company) ? '' : ' (default)') + '</span><a href="formulas.html?company=' + encodeURIComponent(company) + '">Edit formula</a>'
+      : '<span>Add a company to set its formula.</span>';
+    var everyone = people(), list = everyone.filter(function (x) { return !isSkipped(x); });
+    var notPaid = everyone.filter(function (x) { return isSkipped(x); });
+    var rows = list.map(function (x) { return { x: x, c: calc(x) }; });
+    $('paySummary').textContent = company ? rows.length + ' employee' + (rows.length === 1 ? '' : 's') + ' in ' + company : 'No companies added yet';
+    $('gTitle').textContent = company || 'No company'; $('gCount').textContent = rows.length; $('gMonth').textContent = monthLabel();
+    var info = (emp.info && emp.info[company]) || {};
+    $('printHead').innerHTML = '<h3>Register of Payment of Wages/Salary for the month of ' + esc(monthLabel()) + '</h3><p>' + esc(company) + (info.address ? ' — ' + esc(info.address) : '') + '</p>';
+
+    if (!emp.companies.length || !rows.length) {
+      $('regBody').innerHTML = '<div class="empty"><h3>' + (emp.companies.length ? 'No employees in ' + esc(company) : 'No employees yet') + '</h3>' +
+        '<p>Add them on the <a href="employees.html" style="color:var(--cyan)">Employees</a> page, or import a PayRegister .xlsx there.</p></div>';
+      $('cards').innerHTML = ''; $('banner').hidden = true; return;
+    }
+
+    var missing = rows.filter(function (r) { return r.c.missing; });
+    $('banner').hidden = !missing.length;
+    if (missing.length) $('banner').textContent = missing.length + ' employee' + (missing.length === 1 ? ' has' : 's have') + ' no daily rate yet, so their pay shows 0. Add the rate on the Employees page (Edit).';
+
+    var h = '<table class="reg"><thead><tr><th class="who">Employee</th><th>Abs</th><th>Paid days</th><th>Basic</th><th>HRA</th><th>Other</th><th>Gross</th><th>PF</th><th>ESI</th><th>Advance</th><th>Net payable</th><th></th></tr></thead><tbody>';
+    rows.forEach(function (r, i) {
+      var c = r.c, other = c.ot + c.arrear + c.meals;
+      h += '<tr><td class="who">' + esc(r.x.name) + '<small>' + (i + 1) + ' · ' + esc(r.x.code || '') + (c.missing ? '<span class="warn">no rate</span>' : '') + '</small></td>' +
+        '<td title="Absent days ' + esc(c.absSrc) + '">' + fmt(c.abs) + '</td><td title="Payable ' + fmt(c.payable) + ' of ' + c.days + ' days">' + fmt(c.paid) + '</td>' +
+        '<td>' + money(c.BU) + '</td><td>' + money(c.BV) + '</td><td>' + (other ? money(other) : '-') + '</td><td>' + money(c.BY) + '</td>' +
+        '<td>' + money(c.PF) + '</td><td>' + money(c.ESI) + '</td><td>' + (c.adv ? money(c.adv) : '-') + '</td><td class="net">' + money(c.net) + '</td>' +
+        '<td><button class="linkbtn editb" data-edit="' + r.x.id + '">Edit</button></td></tr>';
+    });
+    h += '</tbody><tfoot><tr><td class="who">Total</td><td>' + fmt(sum(rows, 'abs')) + '</td><td>' + fmt(sum(rows, 'paid')) + '</td><td>' + money(sum(rows, 'BU')) + '</td><td>' + money(sum(rows, 'BV')) +
+      '</td><td>' + money(sum(rows, 'ot') + sum(rows, 'arrear') + sum(rows, 'meals')) + '</td><td>' + money(sum(rows, 'BY')) + '</td><td>' + money(sum(rows, 'PF')) + '</td><td>' + money(sum(rows, 'ESI')) +
+      '</td><td>' + money(sum(rows, 'adv')) + '</td><td class="net">' + money(sum(rows, 'net')) + '</td><td></td></tr></tfoot></table>';
+    if (notPaid.length) h += '<p class="note" style="padding-top:12px">Not paid this month: ' + notPaid.map(function (x) { return esc(x.name) + ' <button class="linkbtn" data-inc="' + x.id + '">Include</button>'; }).join(' &nbsp;·&nbsp; ') + '</p>';
+    $('regBody').innerHTML = h;
+
+    // bank split
+    var banks = {}; rows.forEach(function (r) { var b = bankOf(r.x); banks[b] = banks[b] || { n: 0, t: 0 }; banks[b].n++; banks[b].t += r.c.net; });
+    var bh = '<section class="group glass"><div class="ghead"><h3>Bank transfer</h3><span class="gmeta">Net payable by bank</span></div><div class="kv">';
+    Object.keys(banks).forEach(function (b) { bh += '<div><span>' + esc(b) + ' (' + banks[b].n + ')</span><span>' + money(banks[b].t) + '</span></div>'; });
+    bh += '<div class="tot"><span>Total</span><span>' + money(sum(rows, 'net')) + '</span></div></div></section>';
+
+    // client invoice
+    var ih = '<section class="group glass"><div class="ghead"><h3>Client invoice</h3><span class="gmeta">Full-month gross, as in the register</span></div><div class="kv">' +
+      '<div><span>Labour supply charges</span><span>' + money(sum(rows, 'BL')) + '</span></div>' +
+      '<div><span>Service charges @' + fmt(rates.svc) + '%</span><span>' + money(sum(rows, 'BM')) + '</span></div>' +
+      '<div><span>P.F @' + fmt(rates.pfEr) + '%</span><span>' + money(sum(rows, 'BN')) + '</span></div>' +
+      '<div><span>E.S.I @' + fmt(rates.esiEr) + '%</span><span>' + money(sum(rows, 'BO')) + '</span></div>' +
+      '<div><span>Total</span><span>' + money(sum(rows, 'BP')) + '</span></div>' +
+      '<div><span>SGST @' + fmt(rates.gst) + '%</span><span>' + money(sum(rows, 'BQ')) + '</span></div>' +
+      '<div><span>CGST @' + fmt(rates.gst) + '%</span><span>' + money(sum(rows, 'BR')) + '</span></div>' +
+      '<div class="tot"><span>Invoice total</span><span>' + money(sum(rows, 'BS')) + '</span></div></div>' +
+      (Math.abs(rates.esiEr - 75) < 0.001 ? '<p class="note"><b>Employer ESI is set to 75%.</b> That reproduces the uploaded September sheet, but the column is labelled 4.75%, so this looks like a typo. Change it on the Formulas page.</p>'
+        : '<p class="note">Employer ESI uses ' + fmt(rates.esiEr) + '%, as the column is labelled. Your September sheet actually multiplied by 75% (Rs 10,947 for the first employee). Set Employer ESI to 75 on the Formulas page to match that sheet.</p>') + '</section>';
+    $('cards').innerHTML = bh + ih;
+  }
+
+  /* ---- edit month inputs ---- */
+  var editing = null;
+  $('regBody').addEventListener('click', function (e) {
+    var inc = e.target.closest('[data-inc]');
+    if (inc) { pay[month] = pay[month] || {}; var en = pay[month][inc.dataset.inc] || {}; en.skip = false; pay[month][inc.dataset.inc] = en; store(PAY_KEY, pay); render(); toast('Included'); return; }
+    var b = e.target.closest('[data-edit]'); if (!b) return;
+    var x = emp.employees.find(function (v) { return v.id === b.dataset.edit; }); if (!x) return;
+    editing = x; var o = ov(x.id), c = calc(x);
+    $('payTitle').textContent = x.name + ' · ' + monthLabel();
+    $('payHint').textContent = 'Leave payable days or absent days blank to use the defaults (' + fmt(defaultPayable(x, monthDays())) + ' payable days; absent days ' + c.absSrc + ').';
+    $('pRate').value = o.rate != null ? o.rate : ''; $('pHra').value = o.hra != null ? o.hra : ''; $('pRate').placeholder = x.rate || ''; $('pHra').placeholder = x.hra || ''; $('pSkip').checked = isSkipped(x);
+    $('pPayable').value = o.payable != null ? o.payable : ''; $('pAbs').value = o.abs != null ? o.abs : '';
+    $('pAdv').value = o.adv || ''; $('pOt').value = o.ot || ''; $('pArrear').value = o.arrear || ''; $('pMeals').value = o.meals || '';
+    $('payDlg').showModal();
+  });
+  $('payCancel').addEventListener('click', function () { $('payDlg').close(); });
+  $('payReset').addEventListener('click', function () {
+    if (pay[month]) delete pay[month][editing.id];
+    store(PAY_KEY, pay); $('payDlg').close(); render(); toast('Back to defaults');
+  });
+  $('payForm').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var v = function (id) { return $(id).value === '' ? null : Math.max(0, +$(id).value); };
+    pay[month] = pay[month] || {};
+    var oldReg = (ov(editing.id) || {}).reg;
+    pay[month][editing.id] = { m: true, skip: $('pSkip').checked, rate: v('pRate'), hra: v('pHra'), reg: oldReg, payable: v('pPayable'), abs: v('pAbs'), adv: v('pAdv') || 0, ot: v('pOt') || 0, arrear: v('pArrear') || 0, meals: v('pMeals') || 0 };
+    store(PAY_KEY, pay); $('payDlg').close(); render(); toast('Saved');
+  });
+
+  /* ---- toolbar and rates ---- */
+  $('coSel').addEventListener('change', function () { company = this.value; prefs.company = company; store(PREF_KEY, prefs); render(); });
+  $('mSel').addEventListener('change', onMonth); $('ySel').addEventListener('change', onMonth);
+
+  /* ---- export / print ---- */
+  $('exportBtn').addEventListener('click', function () {
+    var rows = people().map(function (x) { return { x: x, c: calc(x) }; });
+    if (!rows.length) { toast('Nothing to export', true); return; }
+    var q = function (v) { return '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"'; };
+    var head = ['sn','code','name','bank','ac_no','month_days','payable_days','absent','paid_days','basic_full','hra_full','gross_full','basic','hra','overtime','arrear','free_meals','gross','pf','esi','advance','total_deduction','net_payable',
+      'labour_supply','service_charge','employer_pf','employer_esi','invoice_total','sgst','cgst','invoice_grand_total'];
+    var lines = [head.join(',')].concat(rows.map(function (r, i) {
+      var c = r.c, x = r.x;
+      return [i + 1, q(x.code), q(x.name), q(x.bank), q(x.acNo), c.days, c.payable, c.abs, c.paid, c.AZ, c.hra, c.BF, c.BU, c.BV, c.ot, c.arrear, c.meals, c.BY, c.PF, c.ESI, c.adv, c.ded, c.net,
+        c.BL, c.BM, c.BN, c.BO, c.BP, c.BQ, c.BR, c.BS].join(',');
+    }));
+    var a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([lines.join('\r\n')], { type: 'text/csv' }));
+    a.download = 'payroll-' + company.replace(/[^\w]+/g, '-') + '-' + month + '.csv'; document.body.appendChild(a); a.click(); a.remove();
+  });
+  $('printBtn').addEventListener('click', function () { window.print(); });
+
+  render();
+})();
+</script>
+</body>
+</html>

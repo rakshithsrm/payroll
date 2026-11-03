@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Formulas | RMV Manpover Services</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  .chip2 { font-size:.74rem; font-weight:600; border-radius:999px; padding:3px 11px; border:1px solid var(--line); color:var(--muted); }
+  .chip2.on { color:#02121c; background:var(--cyan); border-color:var(--cyan); }
+  .rgrid { display:grid; grid-template-columns:repeat(auto-fill,minmax(210px,1fr)); gap:14px 16px; padding:16px 18px 4px; }
+  .rgrid label { margin:0 0 6px; }
+  .rgrid .h { color:var(--muted); font-size:.76rem; margin-top:5px; line-height:1.4; }
+  .ract { display:flex; justify-content:flex-end; gap:10px; padding:10px 18px 16px; }
+  .steps { list-style:none; padding:6px 18px 14px; margin:0; counter-reset:s; }
+  .steps li { counter-increment:s; display:grid; grid-template-columns:30px 1fr; gap:10px; padding:11px 0; border-bottom:1px solid rgba(130,195,255,.1); font-size:.93rem; line-height:1.5; }
+  .steps li:last-child { border-bottom:0; }
+  .steps li::before { content:counter(s); width:24px; height:24px; border-radius:7px; display:grid; place-items:center; font-size:.75rem; font-weight:700; color:var(--cyan); background:rgba(63,216,255,.1); border:1px solid rgba(63,216,255,.3); }
+  .steps b { color:var(--cyan); font-weight:600; }
+  .steps small { display:block; color:var(--muted); font-size:.8rem; }
+  .sub { padding:14px 18px 0; font-size:.76rem; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); font-weight:600; }
+  .calc { display:grid; grid-template-columns:1fr 1fr; gap:0; }
+  .calc > div { padding:14px 18px; }
+  .calc .in { display:grid; grid-template-columns:1fr 1fr; gap:12px; border-right:1px solid var(--line); align-content:start; }
+  .calc .in label { margin:0 0 6px; }
+  .kv div { display:flex; justify-content:space-between; gap:12px; padding:9px 0; border-bottom:1px solid rgba(130,195,255,.1); font-size:.92rem; font-variant-numeric:tabular-nums; }
+  .kv div:last-child { border-bottom:0; } .kv div span:first-child { color:var(--muted); }
+  .kv div.tot { font-weight:700; } .kv div.tot span:first-child { color:var(--ink); } .kv div.tot span:last-child { color:var(--cyan); }
+  .tools select { flex:1 1 320px; }
+  @media (max-width:760px) { .calc { grid-template-columns:1fr; } .calc .in { border-right:0; border-bottom:1px solid var(--line); } }
+</style>
+</head>
+<body>
+<script src="common.js"></script>
+<script src="formula.js"></script>
+
+  <div class="view">
+    <main class="wrap">
+      <div class="head">
+        <div><h2>Formulas</h2><p id="fSummary"></p></div>
+      </div>
+
+      <div class="tools glass">
+        <select id="coSel" aria-label="Company"></select>
+      </div>
+
+      <section class="group glass">
+        <div class="ghead">
+          <h3><span id="gTitle">Company</span></h3>
+          <span class="chip2" id="gChip">Default</span>
+        </div>
+        <div class="rgrid">
+          <div><label for="rPf">Employee PF %</label><input id="rPf" type="number" step="any" min="0"><div class="h">Taken from the earned basic</div></div>
+          <div><label for="rEsi">Employee ESI %</label><input id="rEsi" type="number" step="any" min="0"><div class="h">Taken from the earned gross</div></div>
+          <div><label for="rSvc">Service charge %</label><input id="rSvc" type="number" step="any" min="0"><div class="h">Client invoice, on labour supply charges</div></div>
+          <div><label for="rPfEr">Employer PF %</label><input id="rPfEr" type="number" step="any" min="0"><div class="h">Client invoice, on full-month basic</div></div>
+          <div><label for="rEsiEr">Employer ESI %</label><input id="rEsiEr" type="number" step="any" min="0"><div class="h">Client invoice, on full-month gross. The register column says 4.75</div></div>
+          <div><label for="rGst">SGST % (and CGST %)</label><input id="rGst" type="number" step="any" min="0"><div class="h">Each charged on the invoice total</div></div>
+        </div>
+        <div class="ract">
+          <button class="flow btn ghost" id="resetBtn"><span class="label">Reset to defaults</span></button>
+        </div>
+      </section>
+
+      <section class="group glass" style="margin-top:18px">
+        <div class="ghead"><h3>How pay is calculated</h3><span class="gmeta" id="stepsFor"></span></div>
+        <div class="sub">Employee wages</div>
+        <ol class="steps" id="wageSteps"></ol>
+        <div class="sub">Client invoice</div>
+        <ol class="steps" id="invSteps" style="counter-reset:s 8"></ol>
+      </section>
+
+      <section class="group glass" style="margin-top:18px">
+        <div class="ghead"><h3>Try it</h3><span class="gmeta">Check a calculation with this company's formula</span></div>
+        <div class="calc">
+          <div class="in">
+            <div><label for="cRate">Daily rate</label><input id="cRate" type="number" min="0" step="any"></div>
+            <div><label for="cHra">HRA (monthly)</label><input id="cHra" type="number" min="0" step="any"></div>
+            <div><label for="cDays">Days in month</label><input id="cDays" type="number" min="1" max="31" step="1"></div>
+            <div><label for="cPay">Payable days</label><input id="cPay" type="number" min="0" step="0.5"></div>
+            <div><label for="cAbs">Absent days</label><input id="cAbs" type="number" min="0" step="0.5"></div>
+            <div><label for="cAdv">Advance</label><input id="cAdv" type="number" min="0" step="any"></div>
+          </div>
+          <div class="kv" id="calcOut"></div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <div class="toast" id="toast" hidden></div>
+
+<script>
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+  var esc = function (v) { return String(v == null ? '' : v).replace(/[&<>"']/g, function (c) { return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]; }); };
+  var money = function (n) { return Number(n || 0).toLocaleString('en-IN'); };
+  var fmt = function (n) { return Number.isInteger(n) ? String(n) : (Math.round(n * 10000) / 10000).toString(); };
+
+  var emp = { companies: [], employees: [] };
+  try { var s = JSON.parse(localStorage.getItem('rmvEmployees') || 'null'); if (s && s.companies && s.employees) emp = s; } catch (e) {}
+  var qc = new URLSearchParams(location.search).get('company');
+  var company = emp.companies.indexOf(qc) >= 0 ? qc : (emp.companies[0] || '');
+  var rates = RMVFormula.getRates(company);
+
+  function toast(msg) { var t = $('toast'); t.textContent = msg; t.classList.remove('bad'); t.hidden = false; clearTimeout(toast.t); toast.t = setTimeout(function () { t.hidden = true; }, 2000); }
+
+  var MAP = { rPf: 'pf', rEsi: 'esi', rSvc: 'svc', rPfEr: 'pfEr', rEsiEr: 'esiEr', rGst: 'gst' };
+
+  function steps() {
+    var r = rates;
+    $('wageSteps').innerHTML =
+      '<li><div><b>Basic (full month)</b> = daily rate \u00d7 days in the month</div></li>' +
+      '<li><div><b>Gross (full month)</b> = basic + HRA + overtime + arrear + free meals</div></li>' +
+      '<li><div><b>Paid days</b> = payable days \u2212 absent days<small>Payable days is the whole month, or from the joining date if the person joined that month.</small></div></li>' +
+      '<li><div><b>Earned basic</b> = basic \u00d7 paid days \u00f7 days in the month<small>Rounded to the nearest rupee.</small></div></li>' +
+      '<li><div><b>Earned HRA</b> = earned gross \u2212 earned basic, where earned gross = (basic + HRA) \u00d7 paid days \u00f7 days in the month</div></li>' +
+      '<li><div><b>PF</b> = ' + fmt(r.pf) + '% of earned basic<small>Rounded to the nearest rupee.</small></div></li>' +
+      '<li><div><b>ESI</b> = ' + fmt(r.esi) + '% of earned gross<small>Rounded up to the next rupee. An amount only a few paise over a whole rupee stays at that rupee, as in your register.</small></div></li>' +
+      '<li><div><b>Net payable</b> = earned gross + overtime + arrear + free meals \u2212 PF \u2212 ESI \u2212 advance</div></li>';
+    $('invSteps').innerHTML =
+      '<li><div><b>Labour supply charges</b> = full-month gross</div></li>' +
+      '<li><div><b>Service charges</b> = ' + fmt(r.svc) + '% of labour supply charges<small>Rounded up.</small></div></li>' +
+      '<li><div><b>Employer PF</b> = ' + fmt(r.pfEr) + '% of full-month basic<small>Rounded up.</small></div></li>' +
+      '<li><div><b>Employer ESI</b> = ' + fmt(r.esiEr) + '% of full-month gross<small>Rounded up.</small></div></li>' +
+      '<li><div><b>Total</b> = the four amounts above added together</div></li>' +
+      '<li><div><b>SGST and CGST</b> = ' + fmt(r.gst) + '% each of the total<small>Each rounded up.</small></div></li>' +
+      '<li><div><b>Invoice total</b> = total + SGST + CGST<small>Worked out for each employee and then added up.</small></div></li>';
+  }
+
+  function tryit() {
+    var v = function (id) { return +$(id).value || 0; };
+    var days = Math.max(1, v('cDays')), k = RMVFormula.compute({ rate: v('cRate'), hra: v('cHra'), days: days, payable: v('cPay'), abs: v('cAbs'), adv: v('cAdv'), ot: 0, arrear: 0, meals: 0 }, rates);
+    $('calcOut').innerHTML =
+      '<div><span>Paid days</span><span>' + fmt(k.paid) + '</span></div>' +
+      '<div><span>Earned basic</span><span>' + money(k.BU) + '</span></div>' +
+      '<div><span>Earned HRA</span><span>' + money(k.BV) + '</span></div>' +
+      '<div><span>Earned gross</span><span>' + money(k.BY) + '</span></div>' +
+      '<div><span>PF</span><span>' + money(k.PF) + '</span></div>' +
+      '<div><span>ESI</span><span>' + money(k.ESI) + '</span></div>' +
+      '<div class="tot"><span>Net payable</span><span>' + money(k.net) + '</span></div>' +
+      '<div><span>Invoice total (incl. GST)</span><span>' + money(k.BS) + '</span></div>';
+  }
+
+  function seedTry() {
+    var x = emp.employees.filter(function (e) { return e.company === company && +e.rate; })[0];
+    var d = new Date(), days = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
+    $('cRate').value = x ? x.rate : 259; $('cHra').value = x ? (x.hra || 0) : 6825;
+    $('cDays').value = days; $('cPay').value = days; $('cAbs').value = 0; $('cAdv').value = 0;
+  }
+
+  function render() {
+    var sel = $('coSel');
+    sel.innerHTML = emp.companies.length ? emp.companies.map(function (c) { return '<option>' + esc(c) + '</option>'; }).join('') : '<option value="">No companies</option>';
+    sel.value = company;
+    rates = RMVFormula.getRates(company);
+    $('fSummary').textContent = company ? 'Rates and calculation steps used for ' + company : 'Add a company first';
+    $('gTitle').textContent = company || 'No company';
+    var own = company && RMVFormula.hasOwn(company);
+    $('gChip').textContent = own ? 'Custom formula' : 'Default formula'; $('gChip').classList.toggle('on', !!own);
+    $('stepsFor').textContent = company;
+    Object.keys(MAP).forEach(function (id) { $(id).value = rates[MAP[id]]; $(id).disabled = !company; });
+    $('resetBtn').disabled = !own;
+    steps(); tryit();
+  }
+
+  $('coSel').addEventListener('change', function () { company = this.value; seedTry(); render(); });
+  Object.keys(MAP).forEach(function (id) {
+    $(id).addEventListener('change', function () {
+      var n = parseFloat(this.value);
+      var r = Object.assign({}, rates); r[MAP[id]] = isNaN(n) || n < 0 ? RMVFormula.DEF[MAP[id]] : n;
+      RMVFormula.setRates(company, r); render(); toast('Formula saved for ' + company);
+    });
+  });
+  $('resetBtn').addEventListener('click', function () {
+    if (!confirm('Reset ' + company + ' to the default formula?')) return;
+    RMVFormula.resetRates(company); render(); toast('Back to defaults');
+  });
+  ['cRate', 'cHra', 'cDays', 'cPay', 'cAbs', 'cAdv'].forEach(function (id) { $(id).addEventListener('input', tryit); });
+  $('cDays').addEventListener('input', function () { $('cPay').value = this.value; });
+
+  seedTry(); render();
+})();
+</script>
+</body>
+</html>

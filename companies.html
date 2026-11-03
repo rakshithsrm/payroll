@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Companies | RMV Manpover Services</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  .cgrid { display:grid; grid-template-columns:repeat(auto-fill,minmax(320px,1fr)); gap:18px; }
+  .co { border-radius:18px; padding:22px; display:flex; flex-direction:column; gap:14px; transition:transform .3s, border-color .3s, box-shadow .3s; }
+  .co:hover { transform:translateY(-4px); border-color:rgba(63,216,255,.55); box-shadow:0 22px 60px rgba(0,0,0,.5), 0 0 30px rgba(63,216,255,.15); }
+  .co .top { display:flex; align-items:center; gap:14px; }
+  .co .ico { flex:none; }
+  .co h3 { font-size:1.15rem; font-weight:600; line-height:1.25; }
+  .co .meta { color:var(--muted); font-size:.85rem; margin-top:2px; }
+  .co .addr { color:var(--muted); font-size:.86rem; line-height:1.5; min-height:2.6em; }
+  .co .addr em { opacity:.6; }
+  .links { display:flex; flex-wrap:wrap; gap:8px; }
+  .links a { text-decoration:none; font-size:.82rem; font-weight:600; color:var(--cyan); padding:7px 12px; border-radius:8px; border:1px solid rgba(63,216,255,.35); background:rgba(63,216,255,.06); transition:background .2s, color .2s; }
+  .links a:hover { background:var(--cyan); color:#02121c; }
+  .links a:focus-visible { outline:2px solid #fff; outline-offset:2px; }
+  .co .foot { display:flex; justify-content:flex-end; gap:4px; margin-top:auto; border-top:1px solid rgba(130,195,255,.1); padding-top:10px; }
+  textarea { width:100%; padding:12px 14px; font:inherit; color:var(--ink); background:rgba(2,8,18,.6); border:1px solid var(--line); border-radius:8px; outline:none; resize:vertical; min-height:80px; }
+  textarea:focus-visible { border-color:var(--cyan); box-shadow:0 0 0 3px rgba(63,216,255,.25); }
+</style>
+</head>
+<body>
+<script src="common.js"></script>
+<script src="xlsx.mini.min.js"></script>
+
+  <div class="view">
+    <main class="wrap">
+      <div class="head">
+        <div><h2>Companies</h2><p id="coSummary"></p></div>
+        <div class="actions">
+          <button class="flow btn" id="addCoBtn"><span class="label">+ Add company</span></button>
+          <button class="flow btn ghost" id="regBtn"><span class="label">Import PayRegister (.xlsx)</span></button>
+          <button class="flow btn ghost" id="bkBtn"><span class="label">Backup data</span></button>
+          <button class="flow btn ghost" id="rsBtn"><span class="label">Restore backup</span></button>
+          <input type="file" id="regFile" accept=".xlsx" hidden>
+          <input type="file" id="rsFile" accept=".json,application/json" hidden>
+        </div>
+      </div>
+      <div id="coList"></div>
+    </main>
+  </div>
+
+  <dialog id="coDlg">
+    <form id="coForm" novalidate>
+      <h3 id="coDlgTitle">Add company</h3>
+      <label for="coName">Company name</label><input id="coName" autocomplete="off" required>
+      <label for="coAddr">Address (optional)</label><textarea id="coAddr"></textarea>
+      <p class="error" id="coErr" role="alert"></p>
+      <div class="dact">
+        <button type="button" class="flow btn ghost" id="coCancel"><span class="label">Cancel</span></button>
+        <button type="submit" class="flow btn"><span class="label">Save</span></button>
+      </div>
+    </form>
+  </dialog>
+
+  <div class="toast" id="toast" hidden></div>
+
+<script>
+  const KEY = 'rmvEmployees';
+  let db = { companies: [], employees: [], info: {} };
+  try { const saved = JSON.parse(localStorage.getItem(KEY) || 'null'); if (saved && saved.companies && saved.employees) db = saved; } catch (e) {}
+  db.info = db.info || {};
+  function save() { try { localStorage.setItem(KEY, JSON.stringify(db)); } catch (e) {} }
+
+  const $ = id => document.getElementById(id);
+  const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+  function toast(msg, bad) {
+    const t = $('toast'); t.textContent = msg; t.classList.toggle('bad', !!bad); t.hidden = false;
+    clearTimeout(toast.t); toast.t = setTimeout(() => t.hidden = true, 3200);
+  }
+
+  function renderCompanies() {
+    const total = db.employees.length;
+    $('coSummary').textContent = db.companies.length
+      ? `${db.companies.length} compan${db.companies.length === 1 ? 'y' : 'ies'} \u00b7 ${total} employee${total === 1 ? '' : 's'}`
+      : 'No companies added yet';
+    if (!db.companies.length) {
+      $('coList').innerHTML = '<div class="empty glass"><h3>No companies yet</h3><p>Add one with the button above, or import a PayRegister .xlsx to add a company with all its employees at once.</p></div>';
+      return;
+    }
+    $('coList').innerHTML = '<div class="cgrid">' + db.companies.map(c => {
+      const n = db.employees.filter(x => x.company === c).length, a = (db.info[c] || {}).address, q = encodeURIComponent(c);
+      return `<article class="co glass">
+        <div class="top"><div class="ico"><svg viewBox="0 0 24 24"><path d="M4 21V5a1 1 0 0 1 1-1h8a1 1 0 0 1 1 1v16M14 9h5a1 1 0 0 1 1 1v11M3 21h18M8 8h2M8 12h2M8 16h2M17 13h.01M17 17h.01"/></svg></div>
+          <div><h3>${esc(c)}</h3><div class="meta">${n} employee${n === 1 ? '' : 's'}</div></div></div>
+        <div class="addr">${a ? esc(a) : '<em>No address added</em>'}</div>
+        <div class="links"><a href="employees.html?company=${q}">Employees</a><a href="attendance.html?company=${q}">Attendance</a><a href="formulas.html?company=${q}">Formula</a><a href="payroll.html?company=${q}">Payroll</a></div>
+        <div class="foot"><button class="linkbtn" data-edit="${esc(c)}">Edit</button><button class="linkbtn del" data-del="${esc(c)}">Remove</button></div>
+      </article>`;
+    }).join('') + '</div>';
+  }
+
+  /* ---- add / edit company ---- */
+  let editing = null;
+  function openCo(name) {
+    editing = name || null;
+    $('coDlgTitle').textContent = name ? 'Edit company' : 'Add company';
+    $('coName').value = name || ''; $('coAddr').value = name ? ((db.info[name] || {}).address || '') : ''; $('coErr').textContent = '';
+    $('coDlg').showModal(); $('coName').focus();
+  }
+  $('addCoBtn').addEventListener('click', () => openCo());
+  $('coCancel').addEventListener('click', () => $('coDlg').close());
+  $('coForm').addEventListener('submit', e => {
+    e.preventDefault();
+    const n = $('coName').value.trim(), addr = $('coAddr').value.trim();
+    if (!n) { $('coErr').textContent = 'Enter the company name.'; return; }
+    if (db.companies.some(c => c.toLowerCase() === n.toLowerCase() && c !== editing)) { $('coErr').textContent = 'That company is already added.'; return; }
+    if (editing) {
+      const i = db.companies.indexOf(editing); db.companies[i] = n;
+      if (n !== editing) {
+        db.employees.forEach(x => { if (x.company === editing) x.company = n; });
+        if (db.info[editing]) { db.info[n] = db.info[editing]; delete db.info[editing]; }
+      }
+    } else db.companies.push(n);
+    if (addr) db.info[n] = Object.assign({}, db.info[n], { address: addr }); else if (db.info[n]) delete db.info[n].address;
+    save(); $('coDlg').close(); renderCompanies(); toast(editing ? 'Company updated' : 'Company added');
+  });
+
+  $('coList').addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b) return;
+    if (b.dataset.edit) openCo(b.dataset.edit);
+    else if (b.dataset.del) {
+      const c = b.dataset.del, n = db.employees.filter(x => x.company === c).length;
+      if (confirm(`Remove ${c}${n ? ` and its ${n} employee${n === 1 ? '' : 's'}` : ''}?`)) {
+        db.companies = db.companies.filter(v => v !== c); db.employees = db.employees.filter(v => v.company !== c); delete db.info[c];
+        save(); renderCompanies(); toast('Company removed');
+      }
+    }
+  });
+
+  /* ---- Import a monthly PayRegister .xlsx (adds the company, its employees, rates and that month's inputs) ---- */
+  const PAY_KEY = 'rmvPayroll';
+  const norm = s => String(s == null ? '' : s).replace(/\s+/g, '').toLowerCase();
+  const MONTHS = ['january','february','march','april','may','june','july','august','september','october','november','december'];
+  const toISO = v => { const m = String(v || '').trim().match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{4})$/); return m ? `${m[3]}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}` : ''; };
+
+  $('regBtn').addEventListener('click', () => $('regFile').click());
+  $('regFile').addEventListener('change', async e => {
+    const f = e.target.files[0]; e.target.value = ''; if (!f) return;
+    if (typeof XLSX === 'undefined') { toast('xlsx.mini.min.js is missing. Keep it in the same folder as this page.', true); return; }
+    try {
+      const wb = XLSX.read(await f.arrayBuffer(), { type: 'array' });
+      const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1, defval: '', raw: true });
+
+      // month from the title row, company from the second row
+      const title = String(rows[0] && rows[0][0] || ''), tm = title.match(/([A-Za-z]+)\s*\/\s*(\d{4})/);
+      const mi = tm ? MONTHS.indexOf(tm[1].toLowerCase()) : -1;
+      const month = mi >= 0 ? tm[2] + '-' + String(mi + 1).padStart(2, '0') : '';
+      const head2 = String(rows[1] && rows[1][0] || '').replace(/_x000D_/g, '').split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+      const company = (head2[0] || '').split('/')[0].trim();
+      const address = head2.slice(1).join(', ');
+      if (!company) { toast('Could not find the company name in that file', true); return; }
+
+      // header row: has "Code" and "Name"
+      const hi = rows.findIndex(r => r.some(c => norm(c) === 'code') && r.some(c => norm(c) === 'name'));
+      if (hi < 0) { toast('Could not find the Code / Name columns', true); return; }
+      const idx = {}; rows[hi].forEach((c, i) => { const k = norm(c); if (k && !(k in idx)) idx[k] = i; });
+      const col = (...names) => { for (const n of names) if (n in idx) return idx[n]; return -1; };
+      const C = { code: col('code'), name: col('name'), gender: col('gender'), doj: col('doj'), bank: col('bankname'), ac: col('a/cno'), pf: col('pfno'),
+        uan: col('uan'), esi: col('esino'), desig: col('designation'), mobile: col('mobile'), phone: col('phone'),
+        payable: col('maxpayabledays'), abs: col('abs./lwp'), paid: col('netpaiddays'), eBU: col('basicsalary(d)'), eBV: col('hra'), rate: col('dailyrate[actual]'), hra: col('hra[actual]'),
+        ot: col('overtime[actual]'), arrear: col('arrearsalary[actual]'), meals: col('freemeals[actual]'), adv: col('advance[actual]') };
+      if (C.rate < 0 || C.hra < 0) { toast('This file has no DAILY RATE / HRA columns', true); return; }
+
+      const val = (r, k) => (k >= 0 ? r[k] : '');
+      const text = v => String(v == null ? '' : v).trim();
+      const n = v => (v === '' || v == null || isNaN(+v)) ? 0 : +v;
+
+      if (!db.companies.some(c => c.toLowerCase() === company.toLowerCase())) db.companies.push(company);
+      const co = db.companies.find(c => c.toLowerCase() === company.toLowerCase());
+      db.info = db.info || {}; if (address) db.info[co] = { address };
+
+      let pay = {}; try { pay = JSON.parse(localStorage.getItem(PAY_KEY) || '{}') || {}; } catch (er) {}
+      let added = 0, updated = 0; const inReg = new Set();
+      for (let i = hi + 1; i < rows.length; i++) {
+        const r = rows[i], name = text(val(r, C.name)), code = text(val(r, C.code));
+        if (/^total$/i.test(name)) break;
+        if (!name || !code) continue;
+        const rate = n(val(r, C.rate)), hra = n(val(r, C.hra));
+        const data = { company: co, code, name, designation: text(val(r, C.desig)), phone: text(val(r, C.mobile)) || text(val(r, C.phone)),
+          joined: toISO(val(r, C.doj)), gender: text(val(r, C.gender)),
+          bank: text(val(r, C.bank)), acNo: text(val(r, C.ac)), pfNo: text(val(r, C.pf)), uan: text(val(r, C.uan)), esiNo: text(val(r, C.esi)) };
+        let emp = db.employees.find(x => x.company === co && x.code === code);
+        if (emp) { Object.assign(emp, data); updated++; } else { emp = { id: uid(), ...data }; db.employees.push(emp); added++; }
+        // an employee's own rate/HRA follow the newest month imported; every month keeps the figures it was paid with
+        if (month && (!emp.rateMonth || month >= emp.rateMonth)) { emp.rate = rate; emp.hra = hra; emp.rateMonth = month; }
+        else if (!month) { emp.rate = rate; emp.hra = hra; }
+        inReg.add(emp.id);
+        if (month) {
+          pay[month] = pay[month] || {};
+          pay[month][emp.id] = { payable: n(val(r, C.payable)), abs: n(val(r, C.abs)), adv: n(val(r, C.adv)), ot: n(val(r, C.ot)), arrear: n(val(r, C.arrear)), meals: n(val(r, C.meals)),
+            rate, hra, reg: { paid: n(val(r, C.paid)), BU: n(val(r, C.eBU)), BV: n(val(r, C.eBV)), rate, hra } };
+        }
+      }
+      // in every month that has an imported register for this company, people who are not in it were not paid that month
+      let skipped = 0;
+      Object.keys(pay).forEach(mo => {
+        const mine = db.employees.filter(x => x.company === co);
+        if (!mine.some(x => pay[mo][x.id] && pay[mo][x.id].reg)) return;
+        mine.forEach(x => { if (!pay[mo][x.id]) { pay[mo][x.id] = { skip: true }; if (mo === month) skipped++; } });
+      });
+      save(); try { localStorage.setItem(PAY_KEY, JSON.stringify(pay)); } catch (er) {}
+      renderCompanies();
+      const ml = month ? new Date(+month.slice(0, 4), +month.slice(5) - 1, 1).toLocaleDateString(undefined, { month: 'long', year: 'numeric' }) : '';
+      toast(`${co}: ${added} added${updated ? ', ' + updated + ' updated' : ''}${skipped ? ', ' + skipped + ' not in this register' : ''}${ml ? ' · ' + ml + ' payroll saved' : ''}`);
+    } catch (er) { console.error(er); toast('Could not read that file', true); }
+  });
+
+
+  /* ---- backup / restore everything (companies, employees, attendance, payroll, formulas) ---- */
+  const BK_KEYS = ['rmvEmployees', 'rmvAttendance', 'rmvPayroll', 'rmvFormulas', 'rmvPayrollRates'];
+  $('bkBtn').addEventListener('click', () => {
+    const data = {}; BK_KEYS.forEach(k => { try { const v = JSON.parse(localStorage.getItem(k) || 'null'); if (v != null) data[k] = v; } catch (e) {} });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([JSON.stringify({ app: 'rmv', version: 1, saved: new Date().toISOString(), data }, null, 1)], { type: 'application/json' }));
+    a.download = 'rmv-backup-' + new Date().toISOString().slice(0, 10) + '.json';
+    document.body.appendChild(a); a.click(); a.remove(); toast('Backup downloaded');
+  });
+  $('rsBtn').addEventListener('click', () => $('rsFile').click());
+  $('rsFile').addEventListener('change', async e => {
+    const f = e.target.files[0]; e.target.value = ''; if (!f) return;
+    try {
+      const o = JSON.parse(await f.text());
+      if (!o || o.app !== 'rmv' || !o.data || !o.data.rmvEmployees) throw new Error('not a backup');
+      if (!confirm('Replace all current companies, employees, attendance, payroll and formulas with this backup?')) return;
+      BK_KEYS.forEach(k => { try { localStorage.removeItem(k); if (o.data[k] != null) localStorage.setItem(k, JSON.stringify(o.data[k])); } catch (er) {} });
+      db = o.data.rmvEmployees; db.info = db.info || {}; renderCompanies(); toast('Backup restored');
+    } catch (er) { toast('That is not a valid backup file', true); }
+  });
+
+  renderCompanies();
+</script>
+</body>
+</html>

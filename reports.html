@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reports | RMV Manpover Services</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<script src="common.js"></script>
+  <div class="view">
+    <main class="wrap">
+      <div class="head">
+        <div><h2>Reports</h2><p id="repSummary"></p></div>
+        <div class="actions"><button class="flow btn ghost" id="repExport"><span class="label">Export summary CSV</span></button></div>
+      </div>
+      <section class="group glass">
+        <div class="ghead"><h3>Employees by company</h3></div>
+        <div id="repBody"></div>
+      </section>
+    </main>
+  </div>
+<script>
+  var db = { companies: [], employees: [] };
+  try { var s = JSON.parse(localStorage.getItem('rmvEmployees') || 'null'); if (s && s.companies && s.employees) db = s; } catch (e) {}
+  var esc = function (v) { return String(v == null ? '' : v).replace(/[&<>"']/g, function (c) { return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]; }); };
+
+  var rows = db.companies.map(function (c) { return { company: c, n: db.employees.filter(function (x) { return x.company === c; }).length }; });
+  var total = db.employees.length, max = Math.max.apply(null, rows.map(function (r) { return r.n; }).concat([1]));
+  document.getElementById('repSummary').textContent = rows.length
+    ? total + ' employee' + (total === 1 ? '' : 's') + ' across ' + rows.length + ' compan' + (rows.length === 1 ? 'y' : 'ies')
+    : 'No companies added yet';
+
+  document.getElementById('repBody').innerHTML = rows.length
+    ? '<div class="scroll"><table style="min-width:0"><thead><tr><th style="width:34%">Company</th><th style="width:12%">Employees</th><th>Share</th></tr></thead><tbody>' +
+      rows.map(function (r) {
+        var pct = total ? Math.round(r.n / total * 100) : 0;
+        return '<tr><td>' + esc(r.company) + '</td><td>' + r.n + '</td><td><div style="display:flex;align-items:center;gap:10px">' +
+          '<div style="flex:1;height:8px;border-radius:99px;background:rgba(130,195,255,.15);overflow:hidden"><div style="height:100%;width:' + (r.n / max * 100) + '%;background:linear-gradient(90deg,#3fd8ff,#ff3b5c)"></div></div>' +
+          '<span style="color:var(--muted);font-size:.82rem;width:38px;text-align:right">' + pct + '%</span></div></td></tr>';
+      }).join('') + '</tbody></table></div>'
+    : '<p class="none">Add companies and employees on the Employees page to see this report.</p>';
+
+  document.getElementById('repExport').addEventListener('click', function () {
+    if (!rows.length) return;
+    var csv = ['company,employees'].concat(rows.map(function (r) { return '"' + r.company.replace(/"/g, '""') + '",' + r.n; })).join('\r\n');
+    var a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' })); a.download = 'employees-by-company.csv';
+    document.body.appendChild(a); a.click(); a.remove();
+  });
+</script>
+</body>
+</html>

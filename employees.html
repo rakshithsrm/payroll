@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Employees | RMV Manpover Services</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<script src="common.js"></script>
+  <!-- ============ EMPLOYEES PAGE ============ -->
+  <div class="view" id="empView">
+    <main class="wrap">
+      <div class="head">
+        <div>
+          <h2>Employees</h2>
+          <p id="empSummary"></p>
+        </div>
+        <div class="actions">
+          <button class="flow btn" id="addEmpBtn"><span class="label">+ Add employee</span></button>
+          <button class="flow btn ghost" id="importBtn"><span class="label">Import CSV</span></button>
+          <button class="flow btn ghost" id="exportBtn"><span class="label">Export CSV</span></button>
+          <input type="file" id="importFile" accept=".csv,text/csv" hidden>
+        </div>
+      </div>
+
+      <div class="tools glass">
+        <input id="search" type="search" placeholder="Search by name, code, designation or phone" autocomplete="off">
+        <select id="coFilter" aria-label="Filter by company"><option value="">All companies</option></select>
+      </div>
+
+      <div id="empList"></div>
+    </main>
+  </div>
+
+  <dialog id="empDlg">
+    <form id="empForm" novalidate>
+      <h3 id="empDlgTitle">Add employee</h3>
+      <label for="fCompany">Company</label>
+      <select id="fCompany" style="width:100%" required></select>
+      <div class="row">
+        <div><label for="fCode">Employee code</label><input id="fCode" autocomplete="off"></div>
+        <div><label for="fJoined">Joining date</label><input id="fJoined" type="date"></div>
+      </div>
+      <label for="fName">Name</label><input id="fName" autocomplete="off" required>
+      <div class="row">
+        <div><label for="fDesig">Designation</label><input id="fDesig" autocomplete="off"></div>
+        <div><label for="fPhone">Phone</label><input id="fPhone" type="tel" autocomplete="off"></div>
+      </div>
+      <div class="row">
+        <div><label for="fRate">Daily rate (basic)</label><input id="fRate" type="number" min="0" step="any"></div>
+        <div><label for="fHra">HRA (monthly)</label><input id="fHra" type="number" min="0" step="any"></div>
+      </div>
+      <div class="row">
+        <div><label for="fBank">Bank name</label><input id="fBank" autocomplete="off"></div>
+        <div><label for="fAcNo">A/c no</label><input id="fAcNo" autocomplete="off"></div>
+      </div>
+      <div class="row">
+        <div><label for="fPf">PF no</label><input id="fPf" autocomplete="off"></div>
+        <div><label for="fUan">UAN</label><input id="fUan" autocomplete="off"></div>
+      </div>
+      <label for="fEsi">ESI no</label><input id="fEsi" autocomplete="off">
+      <p class="error" id="empErr" role="alert"></p>
+      <div class="dact">
+        <button type="button" class="flow btn ghost" id="empCancel"><span class="label">Cancel</span></button>
+        <button type="submit" class="flow btn"><span class="label">Save</span></button>
+      </div>
+    </form>
+  </dialog>
+
+  <div class="toast" id="toast" hidden></div>
+<script>
+  /* =================== EMPLOYEES =================== */
+  const KEY = 'rmvEmployees';
+  let db = { companies: [], employees: [] };
+  try { const saved = JSON.parse(localStorage.getItem(KEY) || 'null'); if (saved && saved.companies && saved.employees) db = saved; } catch (e) {}
+  function save() { try { localStorage.setItem(KEY, JSON.stringify(db)); } catch (e) {} }
+
+  const $ = id => document.getElementById(id);
+  const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+
+  function toast(msg, bad) {
+    const t = $('toast'); t.textContent = msg; t.classList.toggle('bad', !!bad); t.hidden = false;
+    clearTimeout(toast.t); toast.t = setTimeout(() => t.hidden = true, 2600);
+  }
+  function fmtDate(v) {
+    if (!v) return '';
+    const d = new Date(v + 'T00:00:00');
+    return isNaN(d) ? v : d.toLocaleDateString(undefined, { day:'2-digit', month:'short', year:'numeric' });
+  }
+
+  function renderEmployees() {
+    const q = $('search').value.trim().toLowerCase();
+    const only = $('coFilter').value;
+
+    // company filter options
+    const cf = $('coFilter'); const cur = cf.value;
+    cf.innerHTML = '<option value="">All companies</option>' + db.companies.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
+    cf.value = db.companies.includes(cur) ? cur : '';
+
+    const total = db.employees.length;
+    $('empSummary').textContent = db.companies.length
+      ? `${total} employee${total === 1 ? '' : 's'} across ${db.companies.length} compan${db.companies.length === 1 ? 'y' : 'ies'}`
+      : 'No companies added yet';
+
+    const list = $('empList');
+    if (!db.companies.length) {
+      list.innerHTML = '<div class="empty glass"><h3>No companies yet</h3><p>Add a company on the <a href="companies.html" style="color:var(--cyan)">Companies</a> page first, then add its employees here.</p></div>';
+      return;
+    }
+
+    const filtering = q || cf.value;
+    let html = '';
+    db.companies.filter(c => !cf.value || c === cf.value).forEach(c => {
+      const rows = db.employees.filter(x => x.company === c && (!q ||
+        [x.name, x.code, x.designation, x.phone].some(v => String(v || '').toLowerCase().includes(q))));
+      if (q && !rows.length) return;
+      html += `<section class="group glass"><div class="ghead"><h3>${esc(c)} <span class="count">${rows.length}</span></h3></div>`;
+      if (!rows.length) html += '<p class="none">No employees yet.</p>';
+      else html += `<div class="scroll"><table><thead><tr><th>Code</th><th>Name</th><th>Designation</th><th>Phone</th><th>Joined</th><th></th></tr></thead><tbody>` +
+        rows.map(x => `<tr><td>${esc(x.code)}</td><td>${esc(x.name)}</td><td>${esc(x.designation)}</td><td>${esc(x.phone)}</td><td>${esc(fmtDate(x.joined))}</td>
+          <td class="act"><button class="linkbtn" data-edit="${x.id}">Edit</button><button class="linkbtn del" data-del="${x.id}">Delete</button></td></tr>`).join('') +
+        '</tbody></table></div>';
+      html += '</section>';
+    });
+    list.innerHTML = html || '<div class="empty glass"><h3>No matches</h3><p>Try a different search.</p></div>';
+  }
+
+  $('search').addEventListener('input', renderEmployees);
+  $('coFilter').addEventListener('change', renderEmployees);
+
+  /* ---- add / edit employee ---- */
+  let editId = null;
+  function openEmp(emp) {
+    if (!db.companies.length) { toast('Add a company first on the Companies page', true); return; }
+    editId = emp ? emp.id : null;
+    $('empDlgTitle').textContent = emp ? 'Edit employee' : 'Add employee';
+    $('fCompany').innerHTML = db.companies.map(c => `<option>${esc(c)}</option>`).join('');
+    $('fCompany').value = emp ? emp.company : ($('coFilter').value || db.companies[0]);
+    $('fCode').value = emp?.code || ''; $('fName').value = emp?.name || '';
+    $('fDesig').value = emp?.designation || ''; $('fPhone').value = emp?.phone || '';
+    $('fJoined').value = emp?.joined || ''; $('empErr').textContent = '';
+    $('fRate').value = emp?.rate ?? ''; $('fHra').value = emp?.hra ?? ''; $('fBank').value = emp?.bank || '';
+    $('fAcNo').value = emp?.acNo || ''; $('fPf').value = emp?.pfNo || ''; $('fUan').value = emp?.uan || ''; $('fEsi').value = emp?.esiNo || '';
+    $('empDlg').showModal(); $('fName').focus();
+  }
+  $('addEmpBtn').addEventListener('click', () => openEmp());
+  $('empCancel').addEventListener('click', () => $('empDlg').close());
+  $('empForm').addEventListener('submit', e => {
+    e.preventDefault();
+    const name = $('fName').value.trim();
+    if (!name) { $('empErr').textContent = 'Enter the employee name.'; return; }
+    const data = { company: $('fCompany').value, code: $('fCode').value.trim(), name,
+      designation: $('fDesig').value.trim(), phone: $('fPhone').value.trim(), joined: $('fJoined').value,
+      rate: $('fRate').value === '' ? null : +$('fRate').value, hra: $('fHra').value === '' ? null : +$('fHra').value,
+      bank: $('fBank').value.trim(), acNo: $('fAcNo').value.trim(), pfNo: $('fPf').value.trim(), uan: $('fUan').value.trim(), esiNo: $('fEsi').value.trim() };
+    if (editId) Object.assign(db.employees.find(x => x.id === editId), data);
+    else db.employees.push({ id: uid(), ...data });
+    save(); $('empDlg').close(); renderEmployees(); toast(editId ? 'Employee updated' : 'Employee added');
+  });
+
+  /* ---- edit / delete (event delegation) ---- */
+  $('empList').addEventListener('click', e => {
+    const t = e.target.closest('button'); if (!t) return;
+    if (t.dataset.edit) openEmp(db.employees.find(x => x.id === t.dataset.edit));
+    else if (t.dataset.del) {
+      const x = db.employees.find(v => v.id === t.dataset.del);
+      if (x && confirm(`Delete ${x.name}?`)) { db.employees = db.employees.filter(v => v.id !== x.id); save(); renderEmployees(); toast('Employee deleted'); }
+    } 
+  });
+
+  /* ---- CSV import / export  (columns: company, code, name, designation, phone, joined) ---- */
+  function parseCSV(text) {
+    const rows = []; let row = [], cell = '', q = false;
+    for (let i = 0; i < text.length; i++) {
+      const ch = text[i];
+      if (q) { if (ch === '"') { if (text[i+1] === '"') { cell += '"'; i++; } else q = false; } else cell += ch; }
+      else if (ch === '"') q = true;
+      else if (ch === ',') { row.push(cell); cell = ''; }
+      else if (ch === '\n' || ch === '\r') { if (ch === '\r' && text[i+1] === '\n') i++; row.push(cell); rows.push(row); row = []; cell = ''; }
+      else cell += ch;
+    }
+    if (cell || row.length) { row.push(cell); rows.push(row); }
+    return rows.filter(r => r.some(c => c.trim()));
+  }
+  $('importBtn').addEventListener('click', () => $('importFile').click());
+  $('importFile').addEventListener('change', async e => {
+    const f = e.target.files[0]; e.target.value = ''; if (!f) return;
+    const rows = parseCSV((await f.text()).replace(/^\uFEFF/, ''));
+    if (rows.length < 2) { toast('That file has no rows', true); return; }
+    const head = rows[0].map(h => h.trim().toLowerCase());
+    const col = n => head.indexOf(n);
+    if (col('company') < 0 || col('name') < 0) { toast('CSV needs "company" and "name" columns', true); return; }
+    let added = 0, updated = 0;
+    rows.slice(1).forEach(r => {
+      const g = n => (col(n) >= 0 ? (r[col(n)] || '').trim() : '');
+      const company = g('company'), name = g('name'); if (!company || !name) return;
+      if (!db.companies.some(c => c.toLowerCase() === company.toLowerCase())) db.companies.push(company);
+      const co = db.companies.find(c => c.toLowerCase() === company.toLowerCase());
+      const num = v => v === '' || isNaN(+v) ? null : +v;
+      const rec = { company: co, code: g('code'), name, designation: g('designation'), phone: g('phone'), joined: g('joined'),
+        rate: num(g('rate')), hra: num(g('hra')), bank: g('bank'), acNo: g('acno'), pfNo: g('pfno'), uan: g('uan'), esiNo: g('esino') };
+      const same = rec.code ? db.employees.find(x => x.company === co && x.code === rec.code) : null;
+      if (same) { Object.assign(same, rec); updated++; return; }
+      db.employees.push({ id: uid(), ...rec });
+      added++;
+    });
+    save(); renderEmployees(); toast(`Imported ${added} employee${added === 1 ? '' : 's'}${updated ? ', updated ' + updated : ''}`);
+  });
+  $('exportBtn').addEventListener('click', () => {
+    if (!db.employees.length) { toast('Nothing to export yet', true); return; }
+    const q = v => '"' + String(v ?? '').replace(/"/g, '""') + '"';
+    const csv = ['company,code,name,designation,phone,joined,rate,hra,bank,acno,pfno,uan,esino'].concat(
+      db.employees.map(x => [x.company, x.code, x.name, x.designation, x.phone, x.joined, x.rate, x.hra, x.bank, x.acNo, x.pfNo, x.uan, x.esiNo].map(q).join(','))).join('\r\n');
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' })); a.download = 'employees.csv';
+    document.body.appendChild(a); a.click(); a.remove();
+  });
+
+
+
+  var qc = new URLSearchParams(location.search).get('company');
+  if (qc && db.companies.indexOf(qc) >= 0) $('coFilter').innerHTML = '<option value="' + esc(qc) + '"></option>', $('coFilter').value = qc;
+  renderEmployees();
+</script>
+</body>
+</html>

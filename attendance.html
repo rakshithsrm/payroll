@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Attendance | RMV Manpover Services</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  .legend { display:flex; flex-wrap:wrap; gap:8px 18px; padding:12px 18px; font-size:.82rem; color:var(--muted); border-bottom:1px solid var(--line); }
+  .legend span { display:inline-flex; align-items:center; gap:7px; }
+  .chip { display:inline-grid; place-items:center; width:24px; height:24px; border-radius:7px; font-weight:700; font-size:.78rem; border:1px solid transparent; }
+  .chip.s-P, .cell.s-P { color:#3dffa0; background:rgba(61,255,160,.12); border-color:rgba(61,255,160,.4); }
+  .chip.s-H, .cell.s-H { color:#ffc857; background:rgba(255,200,87,.12); border-color:rgba(255,200,87,.4); }
+  .chip.s-A, .cell.s-A { color:var(--neon-red); background:rgba(255,59,92,.14); border-color:rgba(255,59,92,.45); }
+  .chip.s-L, .cell.s-L { color:#c79bff; background:rgba(199,155,255,.13); border-color:rgba(199,155,255,.4); }
+  .chip.s-W, .cell.s-W { color:#8fa6c4; background:rgba(143,166,196,.12); border-color:rgba(143,166,196,.35); }
+
+  table.att { min-width:0; table-layout:auto; width:max-content; min-width:100%; }
+  table.att th:nth-child(n) { width:auto; }
+  table.att th, table.att td { padding:10px 3px; text-align:center; overflow:visible; }
+  table.att tbody td { border-top:1px solid rgba(130,195,255,.1); }
+  table.att tbody tr:hover td:not(.who) { background:rgba(63,216,255,.06); }
+  table.att thead th { font-size:.7rem; letter-spacing:0; text-transform:none; line-height:1.25; }
+  table.att thead th small { display:block; color:var(--muted); font-size:.64rem; opacity:.8; }
+  table.att th.sun, table.att td.sun { background:rgba(255,59,92,.06); }
+  table.att th.today { color:var(--cyan); box-shadow:inset 0 -2px 0 var(--cyan); }
+  table.att .who { text-align:left; padding-left:16px; padding-right:12px; min-width:170px; max-width:220px; position:sticky; left:0; z-index:2;
+    background:#0a1426; border-right:1px solid var(--line); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-size:.9rem; }
+  table.att .who small { display:block; color:var(--muted); font-size:.72rem; }
+  table.att thead .who { text-transform:uppercase; font-size:.72rem; letter-spacing:.08em; color:var(--muted); }
+  table.att .tot { min-width:52px; font-variant-numeric:tabular-nums; font-size:.88rem; }
+  table.att thead .tot { padding:10px 6px; text-transform:uppercase; letter-spacing:.08em; font-size:.72rem; }
+  table.att tbody .tot:first-of-type { border-left:1px solid var(--line); }
+  table.att tfoot td { border-top:1px solid var(--line); padding:10px 3px; color:var(--muted); font-size:.74rem; font-variant-numeric:tabular-nums; }
+  table.att tfoot .who { color:var(--muted); font-size:.74rem; text-transform:uppercase; letter-spacing:.06em; }
+
+  .cell { width:28px; height:28px; border-radius:7px; font:inherit; font-weight:700; font-size:.78rem; cursor:pointer;
+    color:var(--muted); background:rgba(255,255,255,.03); border:1px solid rgba(130,195,255,.14); padding:0; transition:transform .12s, border-color .15s; }
+  .cell:hover { transform:scale(1.12); border-color:var(--cyan); }
+  .cell:focus-visible { outline:2px solid #fff; outline-offset:1px; }
+  input.ot { width:58px; padding:5px 6px; text-align:center; font-size:.85rem; border-radius:6px; }
+  .gmeta { color:var(--muted); font-size:.85rem; }
+  .tip { color:var(--muted); font-size:.8rem; padding:12px 18px; margin:0; border-top:1px solid var(--line); }
+  @media print {
+    body::before, .rain, .bar, .tools, .actions, .legend, .tip, .toast { display:none !important; }
+    body { background:#fff; color:#000; } .glass { background:none; border:0; box-shadow:none; backdrop-filter:none; }
+    table.att .who { background:#fff; } .cell { color:#000; border-color:#999; }
+  }
+</style>
+</head>
+<body>
+<script src="common.js"></script>
+
+  <div class="view">
+    <main class="wrap">
+      <div class="head">
+        <div>
+          <h2>Attendance</h2>
+          <p id="attSummary"></p>
+        </div>
+        <div class="actions">
+          <button class="flow btn" id="fillBtn"><span class="label">Mark all present</span></button>
+          <button class="flow btn ghost" id="clearBtn"><span class="label">Clear month</span></button>
+          <button class="flow btn ghost" id="exportBtn"><span class="label">Export CSV</span></button>
+          <button class="flow btn ghost" id="printBtn"><span class="label">Print</span></button>
+        </div>
+      </div>
+
+      <div class="tools glass">
+        <select id="coSel" aria-label="Company"></select>
+        <select id="mSel" aria-label="Month"></select>
+        <select id="ySel" aria-label="Year" style="flex:0 1 130px"></select>
+      </div>
+
+      <section class="group glass">
+        <div class="ghead">
+          <h3><span id="gTitle">Company</span> <span class="count" id="gCount">0</span></h3>
+          <span class="gmeta" id="gMonth"></span>
+        </div>
+        <div class="legend" aria-label="Legend">
+          <span><i class="chip s-P">P</i>Present</span>
+          <span><i class="chip s-H">H</i>Half day</span>
+          <span><i class="chip s-A">A</i>Absent</span>
+          <span><i class="chip s-L">L</i>Leave</span>
+          <span><i class="chip s-W">W</i>Weekly off</span>
+        </div>
+        <div class="scroll" id="attBody"></div>
+        <p class="tip">Click a box to cycle Present, Half day, Absent, Leave, Weekly off, then blank. Or select a box and press P, H, A, L, W, or Delete.</p>
+      </section>
+    </main>
+  </div>
+
+  <div class="toast" id="toast" hidden></div>
+
+<script>
+(function () {
+  var EMP_KEY = 'rmvEmployees', ATT_KEY = 'rmvAttendance', PREF_KEY = 'rmvAttendancePrefs';
+  var CYCLE = ['', 'P', 'H', 'A', 'L', 'W'];
+  var $ = function (id) { return document.getElementById(id); };
+  var esc = function (v) { return String(v == null ? '' : v).replace(/[&<>"']/g, function (c) { return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]; }); };
+  var load = function (k, d) { try { var v = JSON.parse(localStorage.getItem(k) || 'null'); return v == null ? d : v; } catch (e) { return d; } };
+  var store = function (k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} };
+
+  var emp = load(EMP_KEY, { companies: [], employees: [] });
+  if (!emp.companies || !emp.employees) emp = { companies: [], employees: [] };
+  var att = load(ATT_KEY, {});
+  var prefs = load(PREF_KEY, {});
+
+  var now = new Date();
+  var qc = new URLSearchParams(location.search).get('company');
+  var company = emp.companies.indexOf(qc) >= 0 ? qc : (emp.companies.indexOf(prefs.company) >= 0 ? prefs.company : (emp.companies[0] || ''));
+  var month = /^\d{4}-\d{2}$/.test(prefs.month || '') ? prefs.month : now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+
+
+  var MN = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  (function () {
+    var cy = new Date().getFullYear(), y = '';
+    for (var k = 2020; k <= cy + 5; k++) y += '<option>' + k + '</option>';
+    $('ySel').innerHTML = y;
+    $('mSel').innerHTML = MN.map(function (n, i) { return '<option value="' + String(i + 1).padStart(2, '0') + '">' + n + '</option>'; }).join('');
+  })();
+  function setMonthUI() {
+    var yy = month.slice(0, 4);
+    if (![].some.call($('ySel').options, function (o) { return o.value === yy; })) $('ySel').insertAdjacentHTML('beforeend', '<option>' + yy + '</option>');
+    $('mSel').value = month.slice(5); $('ySel').value = yy;
+  }
+  function onMonth() { month = $('ySel').value + '-' + $('mSel').value; prefs.month = month; store(PREF_KEY, prefs); render(); }
+
+  function toast(msg, bad) {
+    var t = $('toast'); t.textContent = msg; t.classList.toggle('bad', !!bad); t.hidden = false;
+    clearTimeout(toast.t); toast.t = setTimeout(function () { t.hidden = true; }, 2400);
+  }
+  function fmt(n) { return Number.isInteger(n) ? String(n) : n.toFixed(1); }
+  function dim() { var p = month.split('-'); return new Date(+p[0], +p[1], 0).getDate(); }
+  function dow(d) { var p = month.split('-'); return new Date(+p[0], +p[1] - 1, d).getDay(); }
+  function monthLabel() { var p = month.split('-'); return new Date(+p[0], +p[1] - 1, 1).toLocaleDateString(undefined, { month: 'long', year: 'numeric' }); }
+  function people() { return emp.employees.filter(function (x) { return x.company === company; }); }
+  function rec(id) { var m = att[month] = att[month] || {}; return m[id] = m[id] || { d: {}, ot: 0 }; }
+  function peek(id) { return (att[month] && att[month][id]) || { d: {}, ot: 0 }; }
+
+  function totals(id) {
+    var r = peek(id), t = { P: 0, H: 0, A: 0, L: 0, W: 0 };
+    Object.keys(r.d).forEach(function (k) { if (t[r.d[k]] != null) t[r.d[k]]++; });
+    return { worked: t.P + t.H * 0.5, W: t.W, L: t.L, A: t.A, ot: +r.ot || 0 };
+  }
+
+  function render() {
+    var sel = $('coSel');
+    sel.innerHTML = emp.companies.length ? emp.companies.map(function (c) { return '<option>' + esc(c) + '</option>'; }).join('') : '<option value="">No companies</option>';
+    sel.value = company; setMonthUI();
+
+    var list = people(), n = dim(), body = $('attBody');
+    $('attSummary').textContent = company
+      ? list.length + ' employee' + (list.length === 1 ? '' : 's') + ' in ' + company
+      : 'No companies added yet';
+    $('gTitle').textContent = company || 'No company';
+    $('gCount').textContent = list.length;
+    $('gMonth').textContent = monthLabel();
+
+    if (!emp.companies.length || !list.length) {
+      body.innerHTML = '<div class="empty"><h3>' + (emp.companies.length ? 'No employees in ' + esc(company) : 'No employees yet') + '</h3>' +
+        '<p>Add them on the <a href="employees.html" style="color:var(--cyan)">Employees</a> page, then come back to mark attendance.</p></div>';
+      return;
+    }
+
+    var isNow = month === now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+    var h = '<table class="att"><thead><tr><th class="who">Employee</th>';
+    for (var d = 1; d <= n; d++) {
+      var w = dow(d);
+      h += '<th class="' + (w === 0 ? 'sun' : '') + (isNow && d === now.getDate() ? ' today' : '') + '">' + d + '<small>' + 'SMTWTFS'[w] + '</small></th>';
+    }
+    h += '<th class="tot">Worked</th><th class="tot">W/O</th><th class="tot">Leave</th><th class="tot">Absent</th><th class="tot">OT hrs</th></tr></thead><tbody>';
+
+    list.forEach(function (x) {
+      var r = peek(x.id), t = totals(x.id);
+      h += '<tr data-row="' + x.id + '"><td class="who">' + esc(x.name) + '<small>' + esc(x.code || x.designation || '') + '</small></td>';
+      for (var d = 1; d <= n; d++) {
+        var s = r.d[d] || '';
+        h += '<td class="' + (dow(d) === 0 ? 'sun' : '') + '"><button class="cell' + (s ? ' s-' + s : '') + '" data-e="' + x.id + '" data-d="' + d + '" aria-label="' +
+          esc(x.name) + ', day ' + d + (s ? ', ' + s : ', blank') + '">' + s + '</button></td>';
+      }
+      h += '<td class="tot" data-t="worked">' + fmt(t.worked) + '</td><td class="tot" data-t="W">' + t.W + '</td><td class="tot" data-t="L">' + t.L + '</td><td class="tot" data-t="A">' + t.A +
+        '</td><td class="tot"><input class="ot" type="number" min="0" step="0.5" data-ot="' + x.id + '" value="' + (t.ot || '') + '" aria-label="Overtime hours for ' + esc(x.name) + '"></td></tr>';
+    });
+
+    h += '</tbody><tfoot><tr><td class="who">Present</td>';
+    for (var d2 = 1; d2 <= n; d2++) h += '<td data-f="' + d2 + '"></td>';
+    h += '<td colspan="5"></td></tr></tfoot></table>';
+    body.innerHTML = h;
+    footer();
+  }
+
+  function footer() {
+    var n = dim(), list = people();
+    for (var d = 1; d <= n; d++) {
+      var c = 0;
+      list.forEach(function (x) { var s = peek(x.id).d[d]; if (s === 'P') c++; else if (s === 'H') c += 0.5; });
+      var el = document.querySelector('[data-f="' + d + '"]'); if (el) el.textContent = c ? fmt(c) : '';
+    }
+  }
+
+  function paintCell(btn, s) {
+    btn.className = 'cell' + (s ? ' s-' + s : ''); btn.textContent = s;
+    var lab = btn.getAttribute('aria-label').split(',').slice(0, 2).join(',');
+    btn.setAttribute('aria-label', lab + (s ? ', ' + s : ', blank'));
+  }
+  function paintRow(id) {
+    var tr = document.querySelector('[data-row="' + id + '"]'); if (!tr) return;
+    var t = totals(id);
+    tr.querySelector('[data-t="worked"]').textContent = fmt(t.worked);
+    ['W', 'L', 'A'].forEach(function (k) { tr.querySelector('[data-t="' + k + '"]').textContent = t[k]; });
+  }
+  function setStatus(btn, s) {
+    var id = btn.dataset.e, d = btn.dataset.d, r = rec(id);
+    if (s) r.d[d] = s; else delete r.d[d];
+    store(ATT_KEY, att); paintCell(btn, s); paintRow(id); footer();
+  }
+
+  /* ---- clicks and keys on the grid ---- */
+  $('attBody').addEventListener('click', function (e) {
+    var b = e.target.closest('.cell'); if (!b) return;
+    var cur = b.textContent.trim();
+    setStatus(b, CYCLE[(CYCLE.indexOf(cur) + 1) % CYCLE.length]);
+  });
+  $('attBody').addEventListener('keydown', function (e) {
+    var b = e.target.closest('.cell'); if (!b) return;
+    var k = e.key.toUpperCase();
+    if ('PHALW'.indexOf(k) >= 0 && k.length === 1) { e.preventDefault(); setStatus(b, k); }
+    else if (e.key === 'Delete' || e.key === 'Backspace') { e.preventDefault(); setStatus(b, ''); }
+    else if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+      var nx = b.closest('td')[e.key === 'ArrowRight' ? 'nextElementSibling' : 'previousElementSibling'];
+      var c = nx && nx.querySelector('.cell'); if (c) { e.preventDefault(); c.focus(); }
+    }
+  });
+  $('attBody').addEventListener('change', function (e) {
+    var i = e.target.closest('input[data-ot]'); if (!i) return;
+    var v = Math.max(0, parseFloat(i.value) || 0);
+    rec(i.dataset.ot).ot = v; i.value = v || ''; store(ATT_KEY, att);
+  });
+
+  /* ---- toolbar ---- */
+  $('coSel').addEventListener('change', function () { company = this.value; prefs.company = company; store(PREF_KEY, prefs); render(); });
+  $('mSel').addEventListener('change', onMonth); $('ySel').addEventListener('change', onMonth);
+
+  $('fillBtn').addEventListener('click', function () {
+    var list = people(), n = dim(), filled = 0;
+    if (!list.length) { toast('No employees to mark', true); return; }
+    list.forEach(function (x) {
+      var r = rec(x.id), start = 1, jm = String(x.joined || '').match(/^(\d{4})-(\d{2})-(\d{2})$/);
+      if (jm) { if (jm[1] + '-' + jm[2] === month) start = +jm[3]; else if (jm[1] + '-' + jm[2] > month) start = n + 1; }
+      for (var d = start; d <= n; d++) if (!r.d[d]) { r.d[d] = dow(d) === 0 ? 'W' : 'P'; filled++; }
+    });
+    store(ATT_KEY, att); render();
+    toast(filled ? 'Filled ' + filled + ' blank boxes (Sundays as weekly off)' : 'Nothing blank to fill');
+  });
+  $('clearBtn').addEventListener('click', function () {
+    var list = people();
+    if (!list.length) return;
+    if (!confirm('Clear all attendance for ' + company + ' in ' + monthLabel() + '?')) return;
+    list.forEach(function (x) { if (att[month]) delete att[month][x.id]; });
+    store(ATT_KEY, att); render(); toast('Month cleared');
+  });
+  $('exportBtn').addEventListener('click', function () {
+    var list = people(), n = dim();
+    if (!list.length) { toast('Nothing to export', true); return; }
+    var q = function (v) { return '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"'; };
+    var head = ['code', 'name']; for (var d = 1; d <= n; d++) head.push(d);
+    head = head.concat(['worked', 'weekly_off', 'leave', 'absent', 'ot_hours']);
+    var rows = list.map(function (x) {
+      var r = peek(x.id), t = totals(x.id), row = [q(x.code), q(x.name)];
+      for (var d = 1; d <= n; d++) row.push(r.d[d] || '');
+      return row.concat([t.worked, t.W, t.L, t.A, t.ot]).join(',');
+    });
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([[head.join(',')].concat(rows).join('\r\n')], { type: 'text/csv' }));
+    a.download = 'attendance-' + company.replace(/[^\w]+/g, '-') + '-' + month + '.csv';
+    document.body.appendChild(a); a.click(); a.remove();
+  });
+  $('printBtn').addEventListener('click', function () { window.print(); });
+
+  render();
+})();
+</script>
+</body>
+</html>
